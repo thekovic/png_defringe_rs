@@ -135,7 +135,7 @@ fn defringe_to_interpolation(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>) {
 }
 
 fn print_usage() {
-    println!("Usage: png_defringe <action> <input_file> <output_file>");
+    println!("Usage: png_defringe.exe <action> <input_file> <output_file>");
     println!("---------------------------------------");
     println!("List of actions:");
     println!("\t black - transparent pixels go towards black");
