@@ -3,7 +3,7 @@ use std::env;
 use image::{ImageBuffer, Rgba};
 
 fn is_pixel_transparent(pixel: & Rgba<u8>) -> bool {
-    if pixel.0[3] < 255 {
+    if pixel[3] < 255 {
         return true;
     }
     else {
@@ -12,9 +12,9 @@ fn is_pixel_transparent(pixel: & Rgba<u8>) -> bool {
 }
 
 fn defringe_to_black(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>) {
-    for pixel in img.enumerate_pixels_mut() {
-        if is_pixel_transparent(pixel.2) {
-            *pixel.2 = Rgba([0, 0, 0, 0]);
+    for pixel in img.pixels_mut() {
+        if is_pixel_transparent(pixel) {
+            *pixel = Rgba([0, 0, 0, 0]);
         }
     }
 }
@@ -27,9 +27,9 @@ fn calculate_pixel_color_average(img: & ImageBuffer<Rgba<u8>, Vec<u8>>) -> Rgba<
 
     for pixel in img.pixels() {
         if !is_pixel_transparent(pixel) {
-            r += pixel.0[0] as u32;
-            g += pixel.0[1] as u32;
-            b += pixel.0[2] as u32;
+            r += pixel[0] as u32;
+            g += pixel[1] as u32;
+            b += pixel[2] as u32;
             pixel_count += 1;
         }
     }
@@ -44,9 +44,9 @@ fn calculate_pixel_color_average(img: & ImageBuffer<Rgba<u8>, Vec<u8>>) -> Rgba<
 fn defringe_to_average(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>) {
     let pixel_color_average = calculate_pixel_color_average(img);
 
-    for pixel in img.enumerate_pixels_mut() {
-        if is_pixel_transparent(pixel.2) {
-            *pixel.2 = pixel_color_average;
+    for pixel in img.pixels_mut() {
+        if is_pixel_transparent(pixel) {
+            *pixel = pixel_color_average;
         }
     }
 }
@@ -92,10 +92,10 @@ fn defringe_to_interpolation(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>) {
     loop {
         is_transparent = false;
         let img_copy = img.clone();
-        for pixel in img.enumerate_pixels_mut() {
-            if is_pixel_transparent(pixel.2) {
+        for (x, y, pixel) in img.enumerate_pixels_mut() {
+            if is_pixel_transparent(pixel) {
                 is_transparent = true;
-                let neighbouring_pixels = get_neighbouring_pixels(&img_copy, pixel.0, pixel.1);
+                let neighbouring_pixels = get_neighbouring_pixels(&img_copy, x, y);
 
                 let mut r: u32 = 0;
                 let mut g: u32 = 0;
@@ -104,10 +104,10 @@ fn defringe_to_interpolation(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>) {
                 let mut opaque_pixel_count: u32 = 0;
                 for neighbouring_pixel in neighbouring_pixels {
                     if !is_pixel_transparent(&neighbouring_pixel) {
-                        r += neighbouring_pixel.0[0] as u32;
-                        g += neighbouring_pixel.0[1] as u32;
-                        b += neighbouring_pixel.0[2] as u32;
-                        a += neighbouring_pixel.0[3] as u32;
+                        r += neighbouring_pixel[0] as u32;
+                        g += neighbouring_pixel[1] as u32;
+                        b += neighbouring_pixel[2] as u32;
+                        a += neighbouring_pixel[3] as u32;
                         opaque_pixel_count += 1;
                     }
                 }
@@ -117,7 +117,7 @@ fn defringe_to_interpolation(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>) {
                     b /= opaque_pixel_count;
                     a /= opaque_pixel_count;
                 }
-                *pixel.2 = Rgba([
+                *pixel = Rgba([
                     r.try_into().unwrap(),
                     g.try_into().unwrap(),
                     b.try_into().unwrap(),
@@ -129,8 +129,8 @@ fn defringe_to_interpolation(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>) {
         }
     }
 
-    for pixel in img.enumerate_pixels_mut() {
-        pixel.2.0[3] = original_transparencies.get_pixel(pixel.0, pixel.1).0[3];
+    for (x, y, pixel) in img.enumerate_pixels_mut() {
+        pixel[3] = original_transparencies.get_pixel(x, y)[3];
     }
 }
 
