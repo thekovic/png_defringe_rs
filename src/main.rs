@@ -54,9 +54,9 @@ fn calculate_pixel_color_average(img: &ImageBuffer<Rgba<u8>, Vec<u8>>) -> Rgba<u
     b /= pixel_count;
 
     return Rgba([
-        r.try_into().unwrap(),
-        g.try_into().unwrap(),
-        b.try_into().unwrap(),
+        r as u8,
+        g as u8,
+        b as u8,
         0,
     ]);
 }
@@ -74,43 +74,47 @@ fn defringe_to_average(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>)
     }
 }
 
-fn get_neighbouring_pixels(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, y: u32) -> Vec<Rgba<u8>>
+fn get_neighbouring_pixels(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, y: u32) -> Vec<&Rgba<u8>>
 {
     let (width, height) = img.dimensions();
 
-    let mut neighbouring_pixels: Vec<Rgba<u8>> = Vec::new();
+    let mut neighbouring_pixels: Vec<&Rgba<u8>> = Vec::with_capacity(8);
 
     if x != 0
     {
-        neighbouring_pixels.push(*img.get_pixel(x - 1, y));
         if y != 0
         {
-            neighbouring_pixels.push(*img.get_pixel(x - 1, y - 1));
+            neighbouring_pixels.push(img.get_pixel(x - 1, y - 1));
         }
+
+        neighbouring_pixels.push(img.get_pixel(x - 1, y));
+
         if y != (height - 1)
         {
-            neighbouring_pixels.push(*img.get_pixel(x - 1, y + 1));
+            neighbouring_pixels.push(img.get_pixel(x - 1, y + 1));
         }
     }
     if x != (width - 1)
     {
-        neighbouring_pixels.push(*img.get_pixel(x + 1, y));
         if y != 0
         {
-            neighbouring_pixels.push(*img.get_pixel(x + 1, y - 1));
+            neighbouring_pixels.push(img.get_pixel(x + 1, y - 1));
         }
+
+        neighbouring_pixels.push(img.get_pixel(x + 1, y));
+
         if y != (height - 1)
         {
-            neighbouring_pixels.push(*img.get_pixel(x + 1, y + 1));
+            neighbouring_pixels.push(img.get_pixel(x + 1, y + 1));
         }
     }
     if y != 0
     {
-        neighbouring_pixels.push(*img.get_pixel(x, y - 1));
+        neighbouring_pixels.push(img.get_pixel(x, y - 1));
     }
     if y != (height - 1)
     {
-        neighbouring_pixels.push(*img.get_pixel(x, y + 1))
+        neighbouring_pixels.push(img.get_pixel(x, y + 1))
     }
 
     return neighbouring_pixels;
@@ -118,34 +122,36 @@ fn get_neighbouring_pixels(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, y: u32)
 
 fn defringe_to_interpolation(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>)
 {
-    let original_transparencies = img.clone();
+    let mut original_transparencies = vec![vec![0u8; img.height() as usize]; img.width() as usize];
+    for (x, y, pixel) in img.enumerate_pixels()
+    {
+        original_transparencies[x as usize][y as usize] = pixel[3];
+    }
 
-    let mut is_transparent: bool;
+    let mut has_transparent_pixel: bool;
 
     loop
     {
-        is_transparent = false;
-        let img_copy = img.clone();
+        has_transparent_pixel = false;
+        let previous_img_state = img.clone();
         for (x, y, pixel) in img.enumerate_pixels_mut()
         {
             if is_pixel_transparent(pixel)
             {
-                is_transparent = true;
-                let neighbouring_pixels = get_neighbouring_pixels(&img_copy, x, y);
+                has_transparent_pixel = true;
+                let neighbouring_pixels = get_neighbouring_pixels(&previous_img_state, x, y);
 
                 let mut r: u32 = 0;
                 let mut g: u32 = 0;
                 let mut b: u32 = 0;
-                let mut a: u32 = 0;
                 let mut opaque_pixel_count: u32 = 0;
                 for neighbouring_pixel in neighbouring_pixels
                 {
-                    if !is_pixel_transparent(&neighbouring_pixel)
+                    if !is_pixel_transparent(neighbouring_pixel)
                     {
                         r += neighbouring_pixel[0] as u32;
                         g += neighbouring_pixel[1] as u32;
                         b += neighbouring_pixel[2] as u32;
-                        a += neighbouring_pixel[3] as u32;
                         opaque_pixel_count += 1;
                     }
                 }
@@ -154,17 +160,17 @@ fn defringe_to_interpolation(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>)
                     r /= opaque_pixel_count;
                     g /= opaque_pixel_count;
                     b /= opaque_pixel_count;
-                    a /= opaque_pixel_count;
                 }
+
                 *pixel = Rgba([
-                    r.try_into().unwrap(),
-                    g.try_into().unwrap(),
-                    b.try_into().unwrap(),
-                    a.try_into().unwrap(),
+                    r as u8,
+                    g as u8,
+                    b as u8,
+                    255, // we are averaging opaque pixels only, so alpha is always 255
                 ]);
             }
         }
-        if is_transparent == false
+        if has_transparent_pixel == false
         {
             break;
         }
@@ -172,7 +178,7 @@ fn defringe_to_interpolation(img: &mut ImageBuffer<Rgba<u8>, Vec<u8>>)
 
     for (x, y, pixel) in img.enumerate_pixels_mut()
     {
-        pixel[3] = original_transparencies.get_pixel(x, y)[3];
+        pixel[3] = original_transparencies[x as usize][y as usize];
     }
 }
 
